@@ -25,13 +25,9 @@ using namespace std::chrono;
 
 
 // Thread functions
-void guest_function(int id);
-void leader_function(int n_guests);
-int start_party(int n);
-
-
-// debug vars
-int MAX_RUNS = 100; // maximum number of calls the minotaur can make
+void guest_function(int id); // Instructions for any normal guest thread
+void leader_function(int n_guests); // instructions for the 'leader' of the party-goers
+int start_party(int n); // Runs the simulation
 
 
 // globals
@@ -51,17 +47,20 @@ mutex mut_current_guest;
 
 int main(int argc, char **argv) {
 
+    // take command line input for number of guests
     if(argc != 2) {
-        perror("Invalid input. Please enter a number of guests.\n`./problem1 <number of guests>`");
-        return 1;
+        printf("Invalid input. Please enter a number of guests.\n`./problem1 <number of guests>`\n");
+        return 1; // error
     }
 
     int n_guests = stoi(argv[1]);
     printf("Number of guests: %d\n", n_guests);
 
+    // seed the rng
     auto time = chrono::system_clock::to_time_t(chrono::system_clock::now());
     srand(time);
 
+    // run simulation
     auto start = high_resolution_clock::now(); // start time
     int runs = start_party(n_guests);
     auto end = high_resolution_clock::now(); // end time

@@ -18,9 +18,11 @@
 #include <queue>
 #include <thread>
 #include <string>
+#include <ctime>
 
 using namespace std;
 using namespace std::chrono;
+
 
 // Thread functions
 void guest_function(int id);
@@ -28,21 +30,24 @@ void leader_function(int n_guests);
 int start_party(int n);
 
 
-// cupcake at the end of the labyrinth
-bool is_cupcake = true;
+// debug vars
+int MAX_RUNS = 100; // maximum number of calls the minotaur can make
+
+
+// globals
+bool is_cupcake = true; // cupcake at the end of the labyrinth
+bool all_visited = false; // flag for the minotaur to know everyone has gone at least once
+bool in_maze = false; // a flag for if someone is in the maze currently
+int current_guest = -1; // how the minotaur announces who goes
+
+
+// mutexes for globals
 mutex mut_is_cupcake;
-
-// flag for the minotaur to know everyone has gone at least once
-bool all_visited = false;
 mutex mut_all_visited;
+mutex mut_in_maze; 
+mutex mut_current_guest; 
 
-// how the minotaur announces who goes
-mutex mut_current_guest;
-int current_guest = -1;
 
-// a flag for if someone is in the maze currently
-mutex mut_in_maze;
-bool in_maze = false;
 
 int main(int argc, char **argv) {
 
@@ -54,9 +59,16 @@ int main(int argc, char **argv) {
     int n_guests = stoi(argv[1]);
     printf("Number of guests: %d\n", n_guests);
 
-    int runs = start_party(n_guests);
+    auto time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+    srand(time);
 
-    cout << "\n\nThat party took " << runs << "runs.\nThanks for coming!\n\n~ The Minotaur";
+    auto start = high_resolution_clock::now(); // start time
+    int runs = start_party(n_guests);
+    auto end = high_resolution_clock::now(); // end time
+
+    auto total_time = duration_cast<milliseconds>(end - start);
+
+    cout << "\n\nThat party took " << runs << " runs, and " << total_time.count() << "ms.\nThanks for coming!\n\n~ The Minotaur\n\n";
 
     return 0;
 }
@@ -64,47 +76,33 @@ int main(int argc, char **argv) {
 
 void guest_function(int id) {
 
-    bool has_eaten = false;
+    bool has_visited = false;
 
-    // cout << id << " entering work loop" <<"\n";
     while(true) {
 
         mut_all_visited.lock();
-
         if(all_visited) { // minotaur says stop
             mut_all_visited.unlock();
             break;
         }
-
         mut_all_visited.unlock();
 
         mut_current_guest.lock();
-        
         if(current_guest == id) { // enter maze
-
-            mut_in_maze.lock();
-            in_maze = true;
-            mut_in_maze.unlock();
-
-            cout << "Guest " << id << " entered the maze.\n";
 
             // traversing maze
 
-            // end of maze
-            // cout << "Guest " << id << " exited the maze.\n";
             mut_is_cupcake.lock();
-
-            if(!is_cupcake && !has_eaten) { 
+            if(!is_cupcake && !has_visited) { 
 
                 // call servant for new cupcake
                 is_cupcake = true;
-                cout << "Guest " << id << " REPLACED the cupcake.\n";
-                // leaves
+                has_visited = true;
+                // cout << "REPLACED.\n";
 
-                mut_is_cupcake.unlock();
             }
             else {
-                cout << "Guest " << id << " did NOTHING.\n";
+                // cout << "NOTHING.\n";
             }
 
             mut_is_cupcake.unlock();
@@ -115,14 +113,13 @@ void guest_function(int id) {
             in_maze = false;
             mut_in_maze.unlock();
         }
-
-        // cout << "~\n";
         mut_current_guest.unlock();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
 
+    }
+    // cout << "Guest " << id << " left.\n";
     return;
 }
+
 
 
 void leader_function(int n_guests) {
@@ -130,14 +127,14 @@ void leader_function(int n_guests) {
     int count = 0;
     int id = 0;
 
-    // cout << id << " entering work loop" <<"\n";
     while(true) {
 
         if(count >= n_guests) { // minotaur says stop
+
             mut_all_visited.lock();
             all_visited = true;
             mut_all_visited.unlock();
-            return;
+            break;
         }
 
         mut_current_guest.lock();
@@ -147,13 +144,8 @@ void leader_function(int n_guests) {
             in_maze = true;
             mut_in_maze.unlock();
 
-            cout << "Guest 0 entered the maze.\n";
-
             // traversing maze
 
-
-            // end of maze
-            // cout << "Guest 0 exited the maze.\n";
             mut_is_cupcake.lock();
 
             if(is_cupcake) { 
@@ -161,13 +153,11 @@ void leader_function(int n_guests) {
                 // eat the cupcake
                 is_cupcake = false;
                 count++;
-                cout << "Guest 0 ATE the cupcake. Current count: " << count << "\n";
-                // leaves
+                // cout << "ATE. Current count: " << count << "\n";
 
-                mut_is_cupcake.unlock();
             }
             else {
-                cout << "Guest 0 did NOTHING.\n";
+                // cout << "NOTHING.\n";
             }
             
             mut_is_cupcake.unlock();
@@ -179,11 +169,9 @@ void leader_function(int n_guests) {
             mut_in_maze.unlock();
         }
 
-        // cout << "~\n";
         mut_current_guest.unlock();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-
+    // cout << "Guest " << id << " left.\n";
     return;
 }
 
@@ -193,58 +181,62 @@ int start_party(int n) {
     queue<thread> pool;
     
     // spawn the leader
-    // cout << "spawned 0\n";
     thread t(leader_function, n);
     pool.push(move(t));
 
     // spawn everyone else
     for(int i = 1; i < n; i++) { // spawn all threads in the pool
-        // cout << "spawned " << i <<"\n";
         thread t1(guest_function, i);
         pool.push(move(t1));
     }
 
-    // cout << "\n-- AFTER POOLING --\n"; // remove me
-    in_maze = true;
-    mut_current_guest.lock();
-    current_guest = 0;
-    cout << "Guest " << current_guest << " is up!\n";
-    mut_current_guest.unlock();
 
+    int i = 0;
 
-    int i = 1;
     mut_all_visited.lock();
-    for(; i <= 100 && !all_visited; i++) { // change me
+    do {
         mut_all_visited.unlock();
-        while(true) {
-            mut_in_maze.lock();
-            if(!in_maze) {
-                mut_in_maze.unlock();
-                break;
-            }
+
+        mut_in_maze.lock();
+        do {
             mut_in_maze.unlock();
+            // this_thread::sleep_for(chrono::milliseconds(1) );
+            mut_in_maze.lock();
         }
+        while(in_maze);
+        mut_in_maze.unlock();
 
         mut_all_visited.lock();
         if(!all_visited) {
+            mut_all_visited.unlock();
+
+            mut_in_maze.lock();
             in_maze = true;
+            mut_in_maze.unlock();
+
             mut_current_guest.lock();
-            current_guest = i%n;
-            cout << "Guest " << current_guest << " is up!\n";
+            current_guest = rand()%n;
             mut_current_guest.unlock();
+            // cout << "Guest " << current_guest << " is up! ";
+            
+            i++;
+        }
+        else {
+            mut_all_visited.unlock();
         }
         
-    }
+        mut_all_visited.lock();
+    } 
+    while (!all_visited);
+
     mut_all_visited.unlock();
 
-    // mut_current_guest.lock();
-    // current_guest = 0;
-    // mut_current_guest.unlock();
-
-    while(!pool.empty()) { // wait for all threads to finish, then destroy them (with lasers)
+    // cout << "The minotaur is waiting...\n";
+    while(!pool.empty()) { // wait for all threads to finish, then destroy them (with laser sharks)
         pool.front().join();
         pool.pop();
     }
+    // cout << "The party is over.\n";
 
     return i;
 }

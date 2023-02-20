@@ -85,7 +85,7 @@ void guest_function(int id) {
         }
         mut_all_visited.unlock();
 
-        // mut_current_guest.lock();
+        mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
             // traversing maze
@@ -97,9 +97,6 @@ void guest_function(int id) {
                 is_cupcake = true;
                 has_visited = true;
             }
-            else {
-
-            }
 
             mut_is_cupcake.unlock();
             // return to start
@@ -109,9 +106,10 @@ void guest_function(int id) {
             in_maze = false;
             mut_in_maze.unlock();
         }
-        // mut_current_guest.unlock();
+        mut_current_guest.unlock();
 
     }
+    
     return;
 }
 
@@ -132,7 +130,7 @@ void leader_function(int n_guests) {
             break;
         }
 
-        // mut_current_guest.lock();
+        mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
             mut_in_maze.lock();
@@ -148,11 +146,7 @@ void leader_function(int n_guests) {
                 // eat the cupcake
                 is_cupcake = false;
                 count++;
-                // cout << "ATE. Current count: " << count << "\n";
 
-            }
-            else {
-                // cout << "NOTHING.\n";
             }
             
             mut_is_cupcake.unlock();
@@ -164,9 +158,9 @@ void leader_function(int n_guests) {
             mut_in_maze.unlock();
         }
 
-        // mut_current_guest.unlock();
+        mut_current_guest.unlock();
     }
-    // cout << "Guest " << id << " left.\n";
+
     return;
 }
 
@@ -226,12 +220,10 @@ int start_party(int n) {
 
     mut_all_visited.unlock();
 
-    // cout << "The minotaur is waiting...\n";
     while(!pool.empty()) { // wait for all threads to finish, then destroy them (with laser sharks)
         pool.front().join();
         pool.pop();
     }
-    // cout << "The party is over.\n";
 
     return i;
 }

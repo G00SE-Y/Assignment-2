@@ -37,12 +37,8 @@ bool in_maze = false; // a flag for if someone is in the maze currently
 int current_guest = -1; // how the minotaur announces who goes
 
 
-// mutexes for globals
-mutex mut_is_cupcake;
-mutex mut_all_visited;
-mutex mut_in_maze; 
-mutex mut_current_guest; 
-
+// global locks
+mutex mut_maze;
 
 int main(int argc, char **argv) {
 
@@ -78,19 +74,15 @@ void guest_function(int id) {
 
     while(true) {
 
-        mut_all_visited.lock();
         if(all_visited) { // minotaur says stop
-            mut_all_visited.unlock();
             break;
         }
-        mut_all_visited.unlock();
 
-        mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
-            // traversing maze
+            mut_maze.lock(); // block main thread
+            in_maze = true; // alert main thread that someone has entered
 
-            mut_is_cupcake.lock();
             if(!is_cupcake && !has_visited) { 
 
                 // call servant for new cupcake
@@ -98,21 +90,13 @@ void guest_function(int id) {
                 has_visited = true;
             }
 
-            mut_is_cupcake.unlock();
-            // return to start
             current_guest = -1;
-
-            mut_in_maze.lock();
-            in_maze = false;
-            mut_in_maze.unlock();
+            mut_maze.unlock(); // stop blocking main thread
         }
-        mut_current_guest.unlock();
-
     }
     
     return;
 }
-
 
 
 void leader_function(int n_guests) {
@@ -122,43 +106,26 @@ void leader_function(int n_guests) {
 
     while(true) {
 
-        if(count >= n_guests) { // minotaur says stop
-
-            mut_all_visited.lock();
-            all_visited = true;
-            mut_all_visited.unlock();
+        if(count >= n_guests) {
+            all_visited = true; // alert all threads to end
             break;
         }
 
-        mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
-            mut_in_maze.lock();
-            in_maze = true;
-            mut_in_maze.unlock();
-
-            // traversing maze
-
-            mut_is_cupcake.lock();
+            mut_maze.lock(); // block main thread
+            in_maze = true; // alert main thread that someone has entered
 
             if(is_cupcake) { 
 
                 // eat the cupcake
                 is_cupcake = false;
                 count++;
-
+                // cout << "\nCount: " << count << "\n";
             }
-            
-            mut_is_cupcake.unlock();
-            // return to start
             current_guest = -1;
-
-            mut_in_maze.lock();
-            in_maze = false;
-            mut_in_maze.unlock();
+            mut_maze.unlock(); // unblock
         }
-
-        mut_current_guest.unlock();
     }
 
     return;
@@ -179,46 +146,26 @@ int start_party(int n) {
         pool.push(move(t1));
     }
 
-
+    // for debugging
     int i = 0;
 
-    mut_all_visited.lock();
-    do {
-        mut_all_visited.unlock();
+    mut_maze.lock(); // block other threads from entering the maze
+    while(!all_visited){
 
-        mut_in_maze.lock();
-        do {
-            mut_in_maze.unlock();
-            // this_thread::sleep_for(chrono::milliseconds(1) );
-            mut_in_maze.lock();
-        }
-        while(in_maze);
-        mut_in_maze.unlock();
+        current_guest = rand()%n; // select next guest
+        in_maze = false; // indicate that someone needs to enter the maze
 
-        mut_all_visited.lock();
-        if(!all_visited) {
-            mut_all_visited.unlock();
-
-            mut_in_maze.lock();
-            in_maze = true;
-            mut_in_maze.unlock();
-
-            mut_current_guest.lock();
-            current_guest = rand()%n;
-            mut_current_guest.unlock();
-            // cout << "Guest " << current_guest << " is up! ";
-            
-            i++;
-        }
-        else {
-            mut_all_visited.unlock();
-        }
+        mut_maze.unlock(); // open the maze
+        i++;
         
-        mut_all_visited.lock();
-    } 
-    while (!all_visited);
+        do {
+            // NOTHING
+        }
+        while(!in_maze); // the selected person entered the maze
 
-    mut_all_visited.unlock();
+        mut_maze.lock(); // wait for thread to leave and drop lock
+    }
+    mut_maze.unlock();
 
     while(!pool.empty()) { // wait for all threads to finish, then destroy them (with laser sharks)
         pool.front().join();

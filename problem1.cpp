@@ -44,7 +44,6 @@ mutex mut_in_maze;
 mutex mut_current_guest; 
 
 
-
 int main(int argc, char **argv) {
 
     // take command line input for number of guests
@@ -86,7 +85,7 @@ void guest_function(int id) {
         }
         mut_all_visited.unlock();
 
-        mut_current_guest.lock();
+        // mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
             // traversing maze
@@ -97,11 +96,9 @@ void guest_function(int id) {
                 // call servant for new cupcake
                 is_cupcake = true;
                 has_visited = true;
-                // cout << "REPLACED.\n";
-
             }
             else {
-                // cout << "NOTHING.\n";
+
             }
 
             mut_is_cupcake.unlock();
@@ -112,10 +109,9 @@ void guest_function(int id) {
             in_maze = false;
             mut_in_maze.unlock();
         }
-        mut_current_guest.unlock();
+        // mut_current_guest.unlock();
 
     }
-    // cout << "Guest " << id << " left.\n";
     return;
 }
 
@@ -136,7 +132,7 @@ void leader_function(int n_guests) {
             break;
         }
 
-        mut_current_guest.lock();
+        // mut_current_guest.lock();
         if(current_guest == id) { // enter maze
 
             mut_in_maze.lock();
@@ -168,7 +164,7 @@ void leader_function(int n_guests) {
             mut_in_maze.unlock();
         }
 
-        mut_current_guest.unlock();
+        // mut_current_guest.unlock();
     }
     // cout << "Guest " << id << " left.\n";
     return;

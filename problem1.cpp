@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
 
     auto total_time = duration_cast<milliseconds>(end - start);
 
-    cout << "\n\nThat party took " << runs << " runs, and " << total_time.count() << "ms.\nThanks for coming!\n\n~ The Minotaur\n\n";
+    cout << "\nThat party took " << runs << " runs, and " << total_time.count() << "ms.\nThanks for coming!\n\n~ The Minotaur\n\n";
 
     return 0;
 }
@@ -78,9 +78,9 @@ void guest_function(int id) {
             break;
         }
 
+        mut_maze.lock(); // block main thread
         if(current_guest == id) { // enter maze
 
-            mut_maze.lock(); // block main thread
             in_maze = true; // alert main thread that someone has entered
 
             if(!is_cupcake && !has_visited) { 
@@ -91,8 +91,9 @@ void guest_function(int id) {
             }
 
             current_guest = -1;
-            mut_maze.unlock(); // stop blocking main thread
+            // printf("%3d", id);
         }
+        mut_maze.unlock(); // stop blocking main thread
     }
     
     return;
@@ -111,9 +112,9 @@ void leader_function(int n_guests) {
             break;
         }
 
+        mut_maze.lock(); // block main thread
         if(current_guest == id) { // enter maze
 
-            mut_maze.lock(); // block main thread
             in_maze = true; // alert main thread that someone has entered
 
             if(is_cupcake) { 
@@ -124,8 +125,9 @@ void leader_function(int n_guests) {
                 // cout << "\nCount: " << count << "\n";
             }
             current_guest = -1;
-            mut_maze.unlock(); // unblock
+            // printf("%3d", id);
         }
+        mut_maze.unlock(); // unblock
     }
 
     return;
@@ -147,6 +149,7 @@ int start_party(int n) {
     }
 
     // for debugging
+    cout << "All guests are ready.\n";
     int i = 0;
 
     mut_maze.lock(); // block other threads from entering the maze
@@ -157,9 +160,12 @@ int start_party(int n) {
 
         mut_maze.unlock(); // open the maze
         i++;
-        
+
         do {
             // NOTHING
+            if(all_visited) {
+                break;
+            }
         }
         while(!in_maze); // the selected person entered the maze
 

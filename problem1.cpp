@@ -31,6 +31,7 @@ int start_party(int n); // Runs the simulation
 
 
 // globals
+int n_guests = 20;
 bool is_cupcake = true; // cupcake at the end of the labyrinth
 bool all_visited = false; // flag for the minotaur to know everyone has gone at least once
 bool in_maze = false; // a flag for if someone is in the maze currently
@@ -43,12 +44,12 @@ mutex mut_maze;
 int main(int argc, char **argv) {
 
     // take command line input for number of guests
-    if(argc != 2) {
-        printf("Invalid input. Please enter a number of guests.\n`./problem1 <number of guests>`\n");
-        return 1; // error
-    }
+    // if(argc != 2) {
+    //     printf("Invalid input. Please enter a number of guests.\n`./problem1 <number of guests>`\n");
+    //     return 1; // error
+    // }
 
-    int n_guests = stoi(argv[1]);
+    // n_guests = stoi(argv[1]);
     printf("Number of guests: %d\n", n_guests);
 
     // seed the rng

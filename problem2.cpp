@@ -70,7 +70,7 @@ void guest_function(int id);
 
 
 // globals
-int n_guests = 5; // Change me
+int n_guests = 20; // Change me
 int runs = 0; // number of times people saw the vase
 int next_guest = -1;
 ThreadSafeQueue party_queue; // queue to store the order of partygoers
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     //     return 1; // error
     // }
 
-    // int n_guests = stoi(argv[1]);
+    // n_guests = stoi(argv[1]);
     printf("Number of guests: %d\n", n_guests);
 
     // seed the rng
@@ -129,12 +129,12 @@ void start_party(int n) {
     }
 
     cout << "All guests are ready.\n";
-    mut_room.unlock();
 
     next_guest = party_queue.pop();
     while(next_guest < 0) {
         next_guest = party_queue.pop();
     }
+    mut_room.unlock();
 
     party_started = true;
     cv_next_guest.notify_all(); // start the guests going through the room
@@ -150,7 +150,10 @@ void start_party(int n) {
 
 void guest_function(int id) {
 
-    int tickets = 1;
+    auto time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+    srand(time & id);
+
+    int has_ticket = true;
 
     party_queue.push(id);
 
@@ -158,7 +161,7 @@ void guest_function(int id) {
         // Nothing
     }
 
-    while(true) {
+    while(has_ticket) {
 
         while(next_guest != id) {
 
@@ -166,29 +169,42 @@ void guest_function(int id) {
                 return;
             }
 
-            cout << id << " is waiting.\n";
             unique_lock<mutex> lock(mut_room);
             cv_next_guest.wait(lock, [&]{ return check_id(id); }); // waits for notification from current guest
         }
 
         // enter room
         unique_lock<mutex> lock(mut_room);
-        cout << id << " is looking at the vase. ";
+        // cout << id << " went.\n";
         // view vase
 
         // notify next guest and leave
         next_guest = party_queue.pop();
 
-        if(next_guest < 0) break;
+        if(next_guest < 0) {
+            // cout << "here\n";
+            cv_next_guest.notify_all();
+            break;
+        }
 
-        cout << id << " has left. \n";
-        cout << next_guest << " is up!\n";
+        runs++;
         cv_next_guest.notify_all();
 
-        if(rand()%2 == 1) { // might requeue later
+        // cout << "chance: " << (rand()%2 == 1) << "\n";
+
+        if((rand())%2  == 1) { // might requeue later
+            // cout << id << " requeued.\n";
             party_queue.push(id);
         }
+        else {
+            // cout << id << " chose not to requeue.\n";
+            has_ticket = false; // guest gets rid of ticket
+        }
+
     }
+
+    // cout << id << " HAS LEFT THE LINE.\n";
+
     
     return;
 }

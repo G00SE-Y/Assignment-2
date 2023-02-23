@@ -80,6 +80,7 @@ void guest_function(int id) {
         }
 
         mut_maze.lock(); // block main thread
+        
         if(current_guest == id) { // enter maze
 
             in_maze = true; // alert main thread that someone has entered
@@ -92,8 +93,8 @@ void guest_function(int id) {
             }
 
             current_guest = -1;
-            // printf("%3d", id);
         }
+
         mut_maze.unlock(); // stop blocking main thread
     }
     
@@ -123,10 +124,10 @@ void leader_function(int n_guests) {
                 // eat the cupcake
                 is_cupcake = false;
                 count++;
-                // cout << "\nCount: " << count << "\n";
+
             }
+
             current_guest = -1;
-            // printf("%3d", id);
         }
         mut_maze.unlock(); // unblock
     }

@@ -25,7 +25,7 @@ using namespace std;
 using namespace std::chrono;
 
 
-// This is a basics thread safe wrapper class for a queue. It is specifically written for this program.
+// This is a basic thread safe wrapper class for a queue. It is specifically written for this program.
 class ThreadSafeQueue {
 
     queue<int> queue;
@@ -52,7 +52,7 @@ class ThreadSafeQueue {
 
             lock_guard<mutex> lock(mut_q); // scoped lock
             
-            if(queue.empty()) { // can't pop, return 'nothing'
+            if(queue.empty()) { // can't pop, return an invalid value for this problem.
                 return -1;
             }
 
@@ -70,13 +70,13 @@ void guest_function(int id);
 
 
 // globals
-int n_guests = 20; // Change me
+int n_guests = 20; // Default # of Threads
 int runs = 0; // number of times people saw the vase
-int next_guest = -1;
+int next_guest = -1; // id of the current thread (-1 means no thread)
 ThreadSafeQueue party_queue; // queue to store the order of partygoers
-condition_variable cv_next_guest;
+condition_variable cv_next_guest; // Used for conditional waits
 int guests_finished = 0; // number of guests who have finished 
-bool party_started = false;
+bool party_started = false; // a variable used to stop the spawned threads from instantly entering their main loop
 
 
 // mutexes
@@ -120,7 +120,6 @@ void start_party(int n) {
     queue<thread> pool;
 
     mut_room.lock(); // lock the room to start
-    // lock.lock();
 
     // spawn all the partygoers
     for(int i = 0; i < n; i++) { // spawn all threads in the pool
@@ -175,14 +174,14 @@ void guest_function(int id) {
 
         // enter room
         unique_lock<mutex> lock(mut_room);
-        // cout << id << " went.\n";
+
         // view vase
 
         // notify next guest and leave
         next_guest = party_queue.pop();
 
         if(next_guest < 0) {
-            // cout << "here\n";
+
             cv_next_guest.notify_all();
             break;
         }
@@ -190,21 +189,15 @@ void guest_function(int id) {
         runs++;
         cv_next_guest.notify_all();
 
-        // cout << "chance: " << (rand()%2 == 1) << "\n";
+        if((rand())%2  == 1) { // 50% chance to requeue
 
-        if((rand())%2  == 1) { // might requeue later
-            // cout << id << " requeued.\n";
             party_queue.push(id);
         }
         else {
-            // cout << id << " chose not to requeue.\n";
             has_ticket = false; // guest gets rid of ticket
         }
 
     }
-
-    // cout << id << " HAS LEFT THE LINE.\n";
-
     
     return;
 }
